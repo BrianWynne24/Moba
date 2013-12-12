@@ -1,0 +1,6 @@
+"Gamemode"
+{
+	"title"		"MOBA"
+	"base"		"base"
+	"menusystem" "1"
+}
