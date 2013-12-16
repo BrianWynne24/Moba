@@ -6,6 +6,8 @@ ENT.Speed       = 160;
 ENT.Damage      = 2;
 ENT.ScaleSize	= 1;
 
+ENT.AttackSequence = "swing";
+
 MODE_IDLE		= 0;
 MODE_GOTO		= 1;
 MODE_CHASE		= 2;
@@ -27,8 +29,12 @@ end
 
 function ENT:Initialize()
 	self.moba = {};
-		self.moba.waypoint	= nil;
-		self.moba.pet		= nil;
+		self.moba.waypoint		= nil;
+		self.moba.pet			= nil;
+		self.moba.nextattack	= 0;
+		self.moba.weapon		= nil;
+		self.moba.sequence		= "";
+		self.moba.enemy			= nil;
 		
 	self:SetModel( self.Model );
 	self:SetHealth( self.HP );
@@ -38,27 +44,23 @@ function ENT:Initialize()
 	self:SetSpeed( self.Speed );
 	self:SetMode( MODE_IDLE );
 	
-	local owner = self:GetOwner();
-	if ( IsValid(owner) ) then
-		owner:SetCollisionGroup( COLLISION_GROUP_WEAPON );
-	end
-	
 	if ( self.ScaleSize && self.ScaleSize != 1 ) then
 		self:SetModelScale( self.ScaleSize, 0 );
 	end
 end
 
 function ENT:GetEnemy()
-	return self.enemy;
+	return self.moba.enemy;
 end
 
 function ENT:SetEnemy( ent )
-	self.enemy = ent;
+	self.moba.enemy = ent;
 end
 
 function ENT:RunBehaviour()
 	while (true) do
 		if ( self:Mode() == MODE_IDLE ) then
+			self:CheckSequence();
 			self:StartActivity( ACT_IDLE );
 		elseif ( self:Mode() == MODE_GOTO ) then
 			self:MoveWaypoint( self.moba.waypoint );
@@ -72,12 +74,12 @@ function ENT:RunBehaviour()
 end
 
 function ENT:BehaveUpdate( fInterval )
-	if ( !self.BehaveThread ) then return end
+	if ( !self.BehaveThread ) then return; end
 	
-	local ok, message = coroutine.resume( self.BehaveThread )
+	local ok, message = coroutine.resume( self.BehaveThread );
 	if ( ok == false ) then
 
-		self.BehaveThread = nil
+		self.BehaveThread = nil;
 		Msg( self, "error: ", message, "\n" );
 	end
 end
@@ -91,20 +93,22 @@ function ENT:SetWaypoint( pos )
 		self.path = nil;
 	end
 	
+	self:SetEnemy( nil );
 	self:SetMode( MODE_GOTO );
-	
-	local pet = self.moba.pet;
-	if ( IsValid(pet) ) then
-		self:SetEnemy( nil );
-		pet:SetEnemy( nil );
-	end
 end
 
 function ENT:MoveWaypoint( pos )
-	if ( !pos || pos:Distance( self:GetPos() ) <= 24 ) then 
+	if ( !pos || pos:Distance( self:GetPos() ) <= 10 ) then 
+		if ( self:Mode() == MODE_ATTACK ) then
+			self:Attack();
+			return;
+		end
+		
 		self:SetMode( MODE_IDLE );
 		return; 
 	end
+	
+	self:CheckSequence();
 	
 	local opts = { draw = true, maxage = 0.4 };
 	self:MoveToPos( pos, opts );
@@ -125,11 +129,10 @@ function ENT:AttackTarget( target )
 	
 	if ( IsValid(self.moba.pet) ) then
 		local pet = self.moba.pet;
-		pet:SetEnemy( target );
 		pet:SetMode( MODE_ATTACK );
 	end
 	
-	if ( dist >= char.Range ) then
+	if ( dist > char.Range ) then
 		self:SetMode( MODE_CHASE );
 	else
 		self:SetMode( MODE_ATTACK );
@@ -140,6 +143,8 @@ function ENT:Think()
 end
 
 function ENT:ChaseTarget()
+	self.moba.waypoint = nil;
+	
 	self.path = Path("Chase");
     self.path:SetMinLookAheadDistance(200);
     self.path:SetGoalTolerance(0);
@@ -150,15 +155,19 @@ function ENT:ChaseTarget()
 		local enemypos = self:GetEnemy():GetPos();
 		local char = self:GetOwner():GetCharacterDetails();
 		
+		self:CheckSequence();
+		
 		if ( !IsValid( self:GetEnemy() ) ) then
 			self:SetMode( MODE_IDLE );
 			self.path:Invalidate();
-			//self.path = nil;
+			self.path = nil;
 		else
 			if ( self:GetPos():Distance( enemypos ) <= char.Range ) then
+				self.path:Invalidate();
+				self.path = nil;
+			
 				self:SetMode( MODE_ATTACK );
 				self:Attack();
-				//self.path = nil;
 			end
 		end
 		
@@ -176,24 +185,30 @@ function ENT:ChaseTarget()
 end
 
 function ENT:Attack()
-	print( "Attacking" );
-	if ( self.path ) then
-		self.path:Invalidate();
-		self.path = nil;
+	if ( CurTime() < self.moba.nextattack ) then
+		return;
 	end
 	
-	self:SetMode( MODE_IDLE );
+	local enemy = self:GetEnemy();
+	if ( !IsValid(enemy) ) then
+		self:SetEnemy( nil );
+		self:SetMode( MODE_IDLE );
+		return;
+	end
+	
+	local ang = (enemy:GetPos() - self:GetPos()):Angle();
+	self:SetAngles( Angle( 0, ang.y, 0 ) );
+	
+	local char = self:GetOwner():GetCharacterDetails();
+	local sequence = char.AttackAnim;
+	
+	char.OnAttack( self:GetOwner(), self, self:GetEnemy(), char.AttackDmg );
+	
+	self:PlaySequenceAndWait( sequence, 1.0 );
+	self.moba.nextattack = CurTime() + char.AttackTime;
 end
 
 function ENT:DamageEnemy( pl, dmg )
-end
-
-function ENT:HasValidEnemy()
-	if ( IsValid(self:GetEnemy()) && self:GetEnemy():IsPlayer() && self:GetEnemy():Alive() ) then
-		return true;
-	end
-	//self:SetEnemy( nil );
-	return false;
 end
 
 //Hooks
@@ -213,4 +228,40 @@ function ENT:OnOtherKilled( dmginfo )
 end
 
 function ENT:SetFire( bool )
+end
+
+function ENT:CastSpell( seq )
+	self.moba.sequence = seq;
+end
+
+function ENT:CheckSequence()
+	if ( self.moba.sequence ) then
+		if ( self.path ) then
+			self.path:Invalidate();
+			self.path = nil;
+		end
+		self:PlaySequenceAndWait( self.moba.sequence, 2.0 );
+		self.moba.sequence = nil;
+	end
+end
+
+function ENT:EquipWeapon( class )
+	if ( !class ) then return; end
+	
+	local att = "anim_attachment_RH";
+	local pos = self:GetAttachment( self:LookupAttachment(att) );
+	
+	local weapon = ents.Create( class );
+	weapon:SetOwner( self );
+	weapon:SetPos( pos.Pos );
+	weapon:Spawn();
+	
+	weapon:SetParent( self );
+	weapon:Fire( "setparentattachment", att );
+	weapon:AddEffects( EF_BONEMERGE );
+	weapon:SetAngles( self:GetForward():Angle() );
+	weapon:SetSolid( SOLID_NONE );
+	weapon:SetCollisionGroup( COLLISION_GROUP_NONE );
+	
+	self.moba.weapon = weapon;
 end

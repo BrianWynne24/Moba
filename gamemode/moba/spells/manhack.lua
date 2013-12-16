@@ -1,6 +1,7 @@
 SPELL.Name		= "Manhack";
 SPELL.Icon		= "";
 SPELL.Range		= -1;
+SPELL.Sequence	= "canal5breact2"; //What sequence/animation should it play
 SPELL.Cooldown	= 8;
 
 SPELL.OnInitalize = function()

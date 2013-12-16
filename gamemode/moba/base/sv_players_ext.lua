@@ -7,7 +7,7 @@ function meta:Initialize()
 		self.moba.character = "";
 		self.moba.spells = {}; //This is used for ONLY cooldowns
 		
-	self:SetCharacter( "metro_police" );
+	self:SetCharacter( "alyx_vance" );
 	self:SetTeam( TEAM_BLUE );
 	self:SetCollisionGroup( COLLISION_GROUP_WEAPON );
 	self:SetMoveType( MOVETYPE_NONE );
@@ -20,7 +20,6 @@ function meta:AssignBot()
 	if ( self.moba.bot ) then return; end
 	
 	local nextbot = ents.Create( "bot_moba" );
-	nextbot:SetModel( self:GetCharacterDetails().Model );
 	nextbot:SetPos( self:GetPos() );
 	nextbot:SetOwner( self );
 	nextbot:Spawn();
@@ -42,6 +41,10 @@ function meta:AssignBot()
 	local char = self:GetCharacterDetails();
 	if ( !char ) then return; end
 	char.OnInitialize( self, nextbot );
+	
+	nextbot:SetModel( char.Model );
+	nextbot:SetSpeed( char.Speed );
+	nextbot:EquipWeapon( char.Weapon );
 end
 
 function meta:SetWaypoint( pos )
@@ -79,11 +82,19 @@ function meta:SetCharacter( char )
 	net.Send( self );
 end
 
-function meta:CastSpell( spell )
-	if ( !self.moba.bot || (self.moba.spells[ spell ] && RealTime() < self.moba.spells[ spell ] ) ) then return; end
-	MOBA.Spells[ spell ].OnCast( self.moba.bot );
+function meta:CastSpell( slot )
+	if ( !self.moba.bot || (self.moba.spells[ slot ] && CurTime() < self.moba.spells[ slot ]) ) then return; end
+	local char = self:GetCharacterDetails();
+	local spell = char.Spells;
+	spell = MOBA.Spells[ spell[slot] ];
 	
-	self.moba.spells[ spell ] = RealTime() + MOBA.Spells[ spell ].Cooldown;
+	if ( !spell ) then return; end
+	spell.OnCast( self.moba.bot );
+	
+	self.moba.spells[ slot ] = CurTime() + spell.Cooldown;
+	
+	local seq = spell.Sequence;
+	self:GetBot():CastSpell( seq );
 end
 
 function meta:GetBot()
@@ -101,7 +112,7 @@ function meta:GetCharacterDetails()
 	return MOBA.Characters[ char ];
 end
 
-function meta:HasSpell( spell )
+function meta:HasSpell( slot )
 	local char = self:GetCharacterDetails();
-	return table.HasValue(char.Spells, spell);
+	return char.Spells[ slot ];
 end

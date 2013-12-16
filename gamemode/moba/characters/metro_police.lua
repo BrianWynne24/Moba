@@ -1,9 +1,15 @@
-CHARACTER.Name		= "Metro Police";
-CHARACTER.Icon		= "";
-CHARACTER.Role		= ROLE_DPS;
-CHARACTER.Range		= 64;
-CHARACTER.Model		= "models/Police.mdl";
-CHARACTER.Speed		= 240;
+CHARACTER.Name			= "Metro Police";
+CHARACTER.Icon			= "";
+CHARACTER.Role			= ROLE_DPS;
+CHARACTER.Range			= 48;
+CHARACTER.Model			= "models/Police.mdl";
+CHARACTER.Weapon		= "weapon_stunstick";
+
+CHARACTER.AttackAnim	= "swing";
+CHARACTER.AttackTime	= 0.6;
+CHARACTER.AttackDmg		= 3;
+
+CHARACTER.Speed			= 180;
 
 CHARACTER.Equipment = { 
 	["head"] = "",
@@ -23,4 +29,7 @@ CHARACTER.OnDeath	= function( ply, bot )
 end
 
 CHARACTER.OnInitialize 	= function( ply, bot )
+end
+
+CHARACTER.OnAttack	= function( ply, bot, enemy )
 end

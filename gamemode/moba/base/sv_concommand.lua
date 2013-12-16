@@ -1,8 +1,10 @@
 
 local function ccCastSpell( ply, cmd, args )
-	local spell = tostring( args[1] );
+	local slot = tonumber( args[1] );
+	print( slot );
 	
-	if ( !MOBA.Spells[ spell ] && !ply:HasSpell( spell ) ) then return; end
-	ply:CastSpell( spell );
+	if ( ply:HasSpell( slot ) ) then
+		ply:CastSpell( slot );
+	end
 end
 concommand.Add( "mb_cast", ccCastSpell );

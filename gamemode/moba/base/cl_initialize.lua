@@ -20,15 +20,15 @@ function GM:HUDPaint()
 	local x, y = ScrW() / 2, ScrH() / 2;
 	local mx, my = gui.MouseX(), gui.MouseY();
 	
-	if ( mx > (x * 1.90) ) then
+	if ( mx > (x * 1.98) ) then
 		moba.viewoffset = moba.viewoffset - Vector( 0, moba.camIncriment, 0 );
-	elseif ( mx < (x * 0.10) ) then
+	elseif ( mx < (x * 0.02) ) then
 		moba.viewoffset = moba.viewoffset + Vector( 0, moba.camIncriment, 0 );
 	end
 	
-	if ( my > (y * 1.90) ) then
+	if ( my > (y * 1.98) ) then
 		moba.viewoffset = moba.viewoffset - Vector( moba.camIncriment, 0, 0 );
-	elseif ( my < (y * 0.10) ) then
+	elseif ( my < (y * 0.02) ) then
 		moba.viewoffset = moba.viewoffset + Vector( moba.camIncriment, 0, 0 );
 	end
 	
@@ -40,7 +40,7 @@ function GM:HUDPaint()
 		local txt = MOBA.Characters[ moba.character ].Spells[i] or i;
 		local col = Color( 255, 255, 255, 255 );
 		
-		if ( moba.spells[ i ].cooldown > CurTime() ) then
+		if ( moba.spells[ i ].cooldown > RealTime() ) then
 			col = Color( 60, 60, 60, 255 );
 		end
 		
@@ -107,13 +107,36 @@ function GM:Think()
 		if ( moba.camZoom >= 600 ) then return; end
 		moba.camZoom = moba.camZoom + moba.camIncriment;
 	elseif ( input.IsKeyDown( KEY_PAD_PLUS ) ) then
-		if ( moba.camZoom <= 300 ) then return; end
+		if ( moba.camZoom <= 100 ) then return; end
 		moba.camZoom = moba.camZoom - moba.camIncriment;
 	end
 	
+	local spells = moba.spells;
+	
 	if ( input.IsKeyDown( KEY_1 ) ) then
-		RunConsoleCommand( "mb_cast", "manhack" );
-		moba.spells[ 1 ].cooldown = CurTime() + MOBA.Spells[ moba.spells[ 1 ].spell ].Cooldown;
+		if ( !spells[1] || spells[1].spell == "" || RealTime() < spells[1].cooldown ) then return; end
+		
+		RunConsoleCommand( "mb_cast", "1" );
+		spells[1].cooldown = RealTime() + MOBA.Spells[ spells[1].spell ].Cooldown;
+	elseif ( input.IsKeyDown( KEY_2 ) ) then
+		if ( !spells[2] || spells[2].spell == "" || RealTime() < spells[2].cooldown ) then return; end
+		
+		PrintTable( spells[2] );
+		local time = MOBA.Spells[ spells[2] ].Cooldown;
+		if ( !time ) then return; end
+		
+		RunConsoleCommand( "mb_cast", "2" );
+		spells[2].cooldown = RealTime() + time;
+	elseif ( input.IsKeyDown( KEY_3 ) ) then
+		if ( !spells[3] || spells[3].spell == "" || RealTime() < spells[3].cooldown ) then return; end
+		
+		RunConsoleCommand( "mb_cast", "3" );
+		spells[3].cooldown = RealTime() + MOBA.Spells[ spells[3].spell ].Cooldown;
+	elseif ( input.IsKeyDown( KEY_4 ) ) then
+		if ( !spells[4] || spells[4].spell == "" || RealTime() < spells[4].cooldown ) then return; end
+		
+		RunConsoleCommand( "mb_cast", "4" );
+		spells[4].cooldown = RealTime() + MOBA.Spells[ spells[4].spell ].Cooldown;
 	end
 end
 
